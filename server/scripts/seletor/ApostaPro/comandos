@@ -1,0 +1,4 @@
+python -m servidor.servidor_licencas
+python editar_licenca.py
+streamlit run main.py
+source venv/Scripts/activate

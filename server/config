@@ -1,0 +1,14 @@
+[server]
+enableCORS = true
+enableXsrfProtection = false
+enableWebsocketCompression = true
+enableCORS = true
+allowOrigins = "*"
+
+[browser]
+serverAddress = "0.0.0.0"
+serverPort = 8501
+gatherUsageStats = false
+
+[client]
+showErrorDetails = true

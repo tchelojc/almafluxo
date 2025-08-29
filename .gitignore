@@ -1,0 +1,80 @@
+# ==============================
+# Ambiente virtual
+# ==============================
+venv/
+env/
+.venv/
+
+# ==============================
+# Arquivos Python
+# ==============================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==============================
+# Logs e arquivos de teste/diagnóstico
+# ==============================
+*.log
+*.json
+*.sqlite3
+*.db
+*.backup
+*.tmp
+*.temp
+system_diagnostic.json
+
+# ==============================
+# Arquivos de ambiente e configurações sensíveis
+# ==============================
+.env
+.env.local
+.env.production
+cloudflared.yaml
+fluxon.json
+*.key
+*.pem
+*.cert
+
+# ==============================
+# IDE / Editor
+# ==============================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==============================
+# Sistema
+# ==============================
+.DS_Store
+Thumbs.db
+
+# ==============================
+# Streamlit
+# ==============================
+.streamlit/secrets.toml
+
+# ==============================
+# Exceções - manter estes
+# ==============================
+!.streamlit/config.toml
+!config/
+!config/*

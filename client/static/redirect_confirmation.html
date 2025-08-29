@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALMA - Conectando...</title>
+    <style>
+        /* ===== ESTILOS RESPONSIVOS E MODERNOS ===== */
+        :root {
+            --primary-color: #4a6fa5;
+            --primary-hover: #166088;
+            --background-dark: #1a1a1a;
+            --text-light: #ffffff;
+            --text-muted: #cccccc;
+            --success-color: #2ecc71;
+            --error-color: #e74c3c;
+            --warning-color: #f39c12;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body, html {
+            height: 100%;
+            width: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--background-dark);
+            color: var(--text-light);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+            color: white;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            height: 70px;
+        }
+        
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-info {
+            font-size: 14px;
+            opacity: 0.9;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+            max-width: 200px;
+        }
+        
+        .iframe-container {
+            position: fixed;
+            top: 70px;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 70px);
+            background: var(--background-dark);
+        }
+        
+        #alma-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+        
+        .loading {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            background: var(--background-dark);
+            gap: 20px;
+        }
+        
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        
+        .loading p {
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+        
+        .connection-error {
+            text-align: center;
+            padding: 40px 20px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            display: none;
+        }
+        
+        .connection-error h3 {
+            color: var(--error-color);
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .connection-error p {
+            color: var(--text-muted);
+            font-size: 16px;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+        
+        .retry-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+        
+        .retry-btn:hover {
+            background: var(--primary-hover);
+        }
+        
+        .network-config {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .network-config input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .network-config button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 15px;
+                flex-direction: column;
+                height: auto;
+                gap: 8px;
+            }
+            
+            .logo {
+                font-size: 20px;
+            }
+            
+            .user-info {
+                font-size: 12px;
+                max-width: 100%;
+                text-align: center;
+            }
+            
+            .iframe-container {
+                top: 84px; /* Ajuste para header maior em mobile */
+                height: calc(100% - 84px);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .logo {
+                font-size: 18px;
+            }
+            
+            .loading p {
+                font-size: 16px;
+                text-align: center;
+                padding: 0 15px;
+            }
+            
+            .connection-error {
+                padding: 20px 15px;
+            }
+            
+            .connection-error h3 {
+                font-size: 20px;
+            }
+            
+            .connection-error p {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">🚀 ALMA PLATAFORMA</div>
+        <div class="user-info">
+            <span id="user-email">Carregando...</span>
+        </div>
+    </div>
+
+    <div class="iframe-container">
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <p>Conectando ao ALMA Hub...</p>
+        </div>
+        <iframe 
+            id="alma-iframe" 
+            title="ALMA Plataforma"
+            sandbox="allow-forms allow-popups allow-scripts"
+            allow="fullscreen"
+            referrerpolicy="strict-origin-when-cross-origin"
+        ></iframe>
+        <div class="connection-error" id="connection-error">
+            <h3>❌ Erro de Conexão</h3>
+            <p id="error-message">Não foi possível conectar ao serviço ALMA. Verifique sua conexão e tente novamente.</p>
+            <button class="retry-btn" id="retry-btn">Tentar Novamente</button>
+            
+            <div class="network-config" id="network-config">
+                <p>Configuração de rede manual:</p>
+                <input type="text" id="server-address" placeholder="Endereço do servidor (ex: 192.168.1.100:8501)">
+                <button id="save-config">Salvar e Conectar</button>
+            </div>
+            
+            <button class="retry-btn" id="config-btn" style="margin-top: 15px; background: var(--warning-color);">
+                Configuração Manual
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Configurações
+        const CONFIG = {
+            defaultStreamlitUrl: 'http://localhost:8501',
+            connectionTimeout: 15000,
+            validationEndpoint: '/api/validate_token',
+            retryAttempts: 3,
+            retryDelay: 2000
+        };
+
+        // Elementos DOM
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const iframe = document.getElementById('alma-iframe');
+        const loading = document.getElementById('loading');
+        const errorDiv = document.getElementById('connection-error');
+        const errorMessage = document.getElementById('error-message');
+        const userEmailSpan = document.getElementById('user-email');
+        const retryBtn = document.getElementById('retry-btn');
+        const configBtn = document.getElementById('config-btn');
+        const networkConfig = document.getElementById('network-config');
+        const serverAddressInput = document.getElementById('server-address');
+        const saveConfigBtn = document.getElementById('save-config');
+
+        // Estado da aplicação
+        let retryCount = 0;
+        let connectionTimeoutId = null;
+        let currentStreamlitUrl = localStorage.getItem('alma_server_address') || CONFIG.defaultStreamlitUrl;
+
+        // Detectar se estamos em um ambiente local (file://) ou servidor (http://)
+        const isLocalFile = window.location.protocol === 'file:';
+        
+        /**
+         * Inicializa a aplicação
+         */
+        async function init() {
+            if (!token) {
+                showError('Token de autenticação não encontrado.');
+                return;
+            }
+            
+            // Se estivermos abrindo o arquivo localmente, ajustar automaticamente
+            if (isLocalFile) {
+                // Tentar detectar o IP do servidor automaticamente
+                try {
+                    const serverIp = await detectServerIp();
+                    if (serverIp) {
+                        currentStreamlitUrl = `http://${serverIp}:8501`;
+                        console.log(`Detectado servidor em: ${currentStreamlitUrl}`);
+                    }
+                } catch (error) {
+                    console.log('Não foi possível detectar o servidor automaticamente');
+                }
+            }
+            
+            try {
+                // Validar token antes de conectar
+                const validationResult = await validateToken(token);
+                
+                if (validationResult.valid) {
+                    userEmailSpan.textContent = validationResult.email || 'Usuário';
+                    connectToAlma();
+                } else {
+                    showError(validationResult.error || 'Token inválido ou expirado.');
+                }
+            } catch (error) {
+                console.error('Erro na inicialização:', error);
+                showError('Erro de conexão com o servidor.');
+            }
+            
+            // Configurar event listeners
+            setupEventListeners();
+        }
+
+        /**
+         * Tenta detectar automaticamente o IP do servidor
+         */
+        async function detectServerIp() {
+            // Se já temos um IP salvo, usar esse
+            const savedIp = localStorage.getItem('alma_server_ip');
+            if (savedIp) {
+                return savedIp;
+            }
+            
+            // Tentar descobrir o IP do servidor automaticamente
+            try {
+                // Tentar conectar a vários endereços comuns
+                const commonIps = ['192.168.1.100', '192.168.1.101', '192.168.0.100', '192.168.0.101'];
+                
+                for (const ip of commonIps) {
+                    const isReachable = await checkServerReachability(ip, 8501);
+                    if (isReachable) {
+                        localStorage.setItem('alma_server_ip', ip);
+                        return ip;
+                    }
+                }
+            } catch (error) {
+                console.log('Não foi possível detectar IP automaticamente:', error);
+            }
+            
+            return null;
+        }
+
+        /**
+         * Verifica se um servidor está acessível
+         */
+        function checkServerReachability(ip, port) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                let timeout = setTimeout(() => {
+                    img.onerror = img.onload = null;
+                    resolve(false);
+                }, 1000);
+                
+                img.onerror = img.onload = function() {
+                    clearTimeout(timeout);
+                    resolve(true);
+                };
+                
+                img.src = `http://${ip}:${port}/favicon.ico?t=${Date.now()}`;
+            });
+        }
+
+        /**
+         * Valida o token JWT com a API
+         */
+        async function validateToken(token) {
+            try {
+                // Se estamos em um arquivo local, não podemos validar o token via API
+                // Nesse caso, apenas decodificamos o token para obter o email
+                if (isLocalFile) {
+                    try {
+                        // Decodificar o token JWT (parte do payload)
+                        const payload = JSON.parse(atob(token.split('.')[1]));
+                        return {
+                            valid: true,
+                            email: payload.email || 'usuario@exemplo.com'
+                        };
+                    } catch (e) {
+                        console.error('Erro ao decodificar token:', e);
+                        return {
+                            valid: false,
+                            error: 'Token inválido'
+                        };
+                    }
+                }
+                
+                // Se estamos em um servidor, validar via API
+                const validationUrl = `${window.location.origin}${CONFIG.validationEndpoint}`;
+                
+                const response = await fetch(validationUrl, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ token })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                return {
+                    valid: data.success && data.data?.valid,
+                    email: data.data?.email
+                };
+                
+            } catch (error) {
+                console.error('Erro na validação do token:', error);
+                // Se a validação falhar, ainda permite continuar (para desenvolvimento)
+                try {
+                    // Tentar decodificar o token localmente como fallback
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    return {
+                        valid: true,
+                        email: payload.email || 'usuario@exemplo.com'
+                    };
+                } catch (e) {
+                    return {
+                        valid: false,
+                        error: 'Falha na validação do token'
+                    };
+                }
+            }
+        }
+
+        /**
+         * Conecta ao ALMA Hub via iframe
+         */
+        function connectToAlma() {
+            // Reset estado
+            retryCount++;
+            loading.style.display = 'flex';
+            errorDiv.style.display = 'none';
+            iframe.style.display = 'none';
+
+            // Limpar timeout anterior se existir
+            if (connectionTimeoutId) {
+                clearTimeout(connectionTimeoutId);
+            }
+
+            // Configurar iframe
+            const url = new URL(currentStreamlitUrl);
+            url.searchParams.set('token', token);
+            
+            // Medida de segurança: usar about:blank antes de carregar o conteúdo
+            iframe.src = 'about:blank';
+            
+            // Timeout de conexão
+            connectionTimeoutId = setTimeout(() => {
+                if (loading.style.display !== 'none') {
+                    handleConnectionError('Tempo limite de conexão excedido.');
+                }
+            }, CONFIG.connectionTimeout);
+            
+            // Carregar o iframe com um pequeno delay para evitar problemas de renderização
+            setTimeout(() => {
+                try {
+                    iframe.src = url.toString();
+                    
+                    // Eventos do iframe
+                    iframe.onload = function() {
+                        clearTimeout(connectionTimeoutId);
+                        loading.style.display = 'none';
+                        iframe.style.display = 'block';
+                        errorDiv.style.display = 'none';
+                        retryCount = 0; // Resetar contador de tentativas
+                        
+                        console.log('✅ ALMA Hub carregado com sucesso');
+                        
+                        // Ajustar iframe para preencher o espaço disponível
+                        setTimeout(adjustIframeLayout, 100);
+                    };
+
+                    iframe.onerror = function() {
+                        handleConnectionError('Erro ao carregar o ALMA Hub.');
+                    };
+                } catch (error) {
+                    handleConnectionError('Erro ao configurar o iframe: ' + error.message);
+                }
+            }, 100);
+        }
+
+        /**
+         * Ajusta o layout do iframe para melhor visualização
+         */
+        function adjustIframeLayout() {
+            try {
+                // Forçar redimensionamento para preencher o container
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                
+                // Tentar injetar CSS adicional no iframe se possível (apenas same-origin)
+                try {
+                    // Medida de segurança: verificar se é same-origin antes de acessar
+                    const iframeOrigin = new URL(iframe.src).origin;
+                    if (iframeOrigin === window.location.origin) {
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        const style = iframeDoc.createElement('style');
+                        style.textContent = `
+                            body { 
+                                background: #0e1117 !important; 
+                                color: #fafafa !important;
+                            }
+                            .main .block-container { 
+                                padding: 2rem 1rem !important; 
+                            }
+                        `;
+                        iframeDoc.head.appendChild(style);
+                    }
+                } catch (e) {
+                    // Silenciar erro de cross-origin (esperado)
+                }
+            } catch (error) {
+                console.warn('Não foi possível ajustar o layout do iframe:', error);
+            }
+        }
+
+        /**
+         * Manipula erros de conexão
+         */
+        function handleConnectionError(message) {
+            console.error('Erro de conexão:', message);
+            
+            clearTimeout(connectionTimeoutId);
+            loading.style.display = 'none';
+            iframe.style.display = 'none';
+            
+            if (retryCount < CONFIG.retryAttempts) {
+                errorMessage.textContent = 
+                    `${message} Tentando novamente... (${retryCount + 1}/${CONFIG.retryAttempts})`;
+                errorDiv.style.display = 'flex';
+                
+                // Tentar reconexão automática
+                setTimeout(connectToAlma, CONFIG.retryDelay);
+            } else {
+                showError(`${message} Todas as tentativas falharam.`);
+            }
+        }
+
+        /**
+         * Exibe mensagem de erro final
+         */
+        function showError(message) {
+            loading.style.display = 'none';
+            iframe.style.display = 'none';
+            errorMessage.textContent = message;
+            errorDiv.style.display = 'flex';
+            retryCount = 0;
+        }
+
+        /**
+         * Configura os event listeners
+         */
+        function setupEventListeners() {
+            retryBtn.addEventListener('click', connectToAlma);
+            
+            configBtn.addEventListener('click', function() {
+                networkConfig.style.display = networkConfig.style.display === 'block' ? 'none' : 'block';
+                serverAddressInput.value = currentStreamlitUrl;
+            });
+            
+            saveConfigBtn.addEventListener('click', function() {
+                const newAddress = serverAddressInput.value.trim();
+                if (newAddress) {
+                    // Validar formato básico do endereço
+                    if (!newAddress.startsWith('http://') && !newAddress.startsWith('https://')) {
+                        currentStreamlitUrl = 'http://' + newAddress;
+                    } else {
+                        currentStreamlitUrl = newAddress;
+                    }
+                    
+                    // Salvar no localStorage para sessões futuras
+                    localStorage.setItem('alma_server_address', currentStreamlitUrl);
+                    
+                    // Extrair e salvar apenas o IP para detecção automática futura
+                    try {
+                        const url = new URL(currentStreamlitUrl);
+                        localStorage.setItem('alma_server_ip', url.hostname);
+                    } catch (e) {
+                        console.log('Não foi possível extrair IP do URL:', e);
+                    }
+                    
+                    // Ocultar configuração e tentar conectar
+                    networkConfig.style.display = 'none';
+                    connectToAlma();
+                }
+            });
+            
+            // Tecla Enter no campo de endereço
+            serverAddressInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    saveConfigBtn.click();
+                }
+            });
+        }
+
+        /**
+         * Detecta mudanças de orientação/tamanho da tela
+         */
+        function setupResponsiveHandlers() {
+            // Função debounce para melhor performance
+            let resizeTimeout;
+            function resizeThrottler() {
+                if (!resizeTimeout) {
+                    resizeTimeout = setTimeout(function() {
+                        resizeTimeout = null;
+                        adjustIframeLayout();
+                    }, 200);
+                }
+            }
+            
+            window.addEventListener('resize', resizeThrottler);
+            window.addEventListener('orientationchange', function() {
+                setTimeout(adjustIframeLayout, 200);
+            });
+            
+            // Ajustar layout inicial
+            setTimeout(adjustIframeLayout, 1000);
+        }
+
+        // Inicializar quando o DOM estiver pronto
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                init();
+                setupResponsiveHandlers();
+            });
+        } else {
+            init();
+            setupResponsiveHandlers();
+        }
+    </script>
+</body>
+</html>
