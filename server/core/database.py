@@ -1,14 +1,33 @@
-# database.py CORRIGIDO
 import time
 from datetime import datetime
 import json
 import os
 import threading
 from werkzeug.security import generate_password_hash
-from server.config import CONFIG, SECURITY_CONFIG
 import logging
 
-# Configuração do logger para database.py
+# 🔥 CORREÇÃO: Carregar configurações de forma segura
+def load_security_config():
+    try:
+        # Tenta config.py primeiro
+        import server.config
+        return server.config.SECURITY_CONFIG
+    except ImportError:
+        try:
+            # Fallback para config_local.py
+            import server.config_local
+            return server.config_local.SECURITY_CONFIG
+        except ImportError:
+            # Fallback final
+            return {
+                'ADMIN_EMAIL': 'admin@fluxon.com',
+                'ADMIN_PASSWORD': 'senha_admin_segura',
+                'SECRET_KEY': 'fluxon_secret_key'
+            }
+
+SECURITY_CONFIG = load_security_config()
+
+# Configuração do logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -29,12 +48,17 @@ logger.addHandler(fh)
 
 class JSONDatabase:
     def __init__(self, db_file=None):
-        self.DB_FILE = db_file or os.path.abspath(
-            os.path.join(os.path.dirname(__file__), '..', 'fluxon.json')
-        )
+        # ✅ CORREÇÃO: Caminho absoluto confiável
+        if db_file is None:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            self.DB_FILE = os.path.join(base_dir, 'fluxon.json')
+        else:
+            self.DB_FILE = os.path.abspath(db_file)
+            
         self.LOCK = threading.RLock()
-        self.logger = logging.getLogger(__name__ + '.JSONDatabase')  # Adicionando logger
+        self.logger = logging.getLogger(__name__ + '.JSONDatabase')
         self._initialize_database()
+        self.ensure_admin_user_exists()  # ✅ Garante que admin existe
 
     def _initialize_database(self):
         """Verifica e cria a estrutura do banco de dados se não existir"""
@@ -139,7 +163,41 @@ class JSONDatabase:
         for key, type_ in required.items():
             if key not in data or not isinstance(data[key], type_):
                 raise ValueError(f"Estrutura inválida: {key} faltando ou tipo errado")
+     
+    def ensure_admin_user_exists(self):
+        """Garante que o usuário admin existe com credenciais corretas"""
+        data = self._read()
+        admin_email = SECURITY_CONFIG['ADMIN_EMAIL']
+        
+        # Procura pelo admin
+        admin_user = None
+        for user in data['users']:
+            if user['email'].lower() == admin_email.lower():
+                admin_user = user
+                break
+        
+        if admin_user is None:
+            # Cria admin se não existir
+            logger.warning("Usuário admin não encontrado. Criando...")
+            admin_user = self._create_admin_user()
+            data['users'].append(admin_user)
+            self._write(data)
+            logger.info("Usuário admin criado com sucesso")
+            return True
+        else:
+            # Atualiza senha se necessário
+            current_password = admin_user.get('password', '')
+            expected_password = generate_password_hash(SECURITY_CONFIG['ADMIN_PASSWORD'])
             
+            if current_password != expected_password:
+                logger.warning("Atualizando senha do admin...")
+                admin_user['password'] = expected_password
+                self._write(data)
+                logger.info("Senha do admin atualizada")
+                return True
+        
+        return False
+       
     def fix_admin_user(self):
         """Corrige o usuário admin com as credenciais corretas"""
         data = self._read()

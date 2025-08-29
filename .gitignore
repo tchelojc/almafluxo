@@ -47,11 +47,35 @@ system_diagnostic.json
 .env
 .env.local
 .env.production
+.env.development
 cloudflared.yaml
 fluxon.json
 *.key
 *.pem
 *.cert
+
+# ==============================
+# Configurações locais e sensíveis (ADICIONAR ESTES)
+# ==============================
+server/admin/config_local.py
+config_local.py
+*.local.py
+local_config*.py
+
+# ==============================
+# Credenciais do Ngrok (ADICIONAR ESTES)
+# ==============================
+.ngrok2/
+ngrok.yml
+ngrok-config.yml
+ngrok.cfg
+
+# ==============================
+# Arquivos do usuário/systema (JÁ EXISTEM, MAS CONFIRMAR)
+# ==============================
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # ==============================
 # IDE / Editor
@@ -60,12 +84,7 @@ fluxon.json
 .idea/
 *.swp
 *.swo
-
-# ==============================
-# Sistema
-# ==============================
-.DS_Store
-Thumbs.db
+*~
 
 # ==============================
 # Streamlit

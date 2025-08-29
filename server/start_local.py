@@ -58,8 +58,19 @@ class StreamlitManager:
     def start_streamlit(self, app_name: str, port: int, headless: bool = True):
         """Inicia um aplicativo Streamlit específico"""
         app_path = self.app_paths.get(app_name)
-        if not app_path or not app_path.exists():
+        
+        # ✅ VERIFICAÇÃO ADICIONADA
+        if not app_path:
+            logger.error(f"App {app_name} não configurado nos app_paths")
+            return None
+            
+        if not app_path.exists():
             logger.error(f"Arquivo não encontrado: {app_path}")
+            logger.error(f"Path absoluto: {app_path.absolute()}")
+            # Listar diretório para debug
+            parent_dir = app_path.parent
+            if parent_dir.exists():
+                logger.error(f"Arquivos em {parent_dir}: {list(parent_dir.glob('*'))}")
             return None
 
         cmd = [
@@ -123,18 +134,18 @@ class StreamlitManager:
 SERVICES = {
     "flask_api": {
         "port": 5000,
-        "command": ["python", "app.py"],
-        "cwd": BASE_DIR,
+        "command": ["python", "server/app.py"],  # ✅ Agora roda de BASE_DIR
+        "cwd": BASE_DIR,  # ✅ flux_on/
         "health_endpoint": "/api/health",
-        "startup_time": 5,
+        "startup_time": 10,  # ✅ Aumentar tempo
         "max_retries": 3
     },
     "fastapi_proxy": {
         "port": 5001, 
         "command": ["python", "proxy_server.py"],
-        "cwd": BASE_DIR,
+        "cwd": BASE_DIR / "server" / "services",  # ✅ Diretório correto
         "health_endpoint": "/health",
-        "startup_time": 3,
+        "startup_time": 5,
         "max_retries": 3
     }
 }
@@ -150,11 +161,12 @@ def is_port_in_use(port: int) -> bool:
         return s.connect_ex(('127.0.0.1', port)) == 0
 
 def check_service_health(port: int, endpoint: str = "") -> bool:
-    """Verifica se o serviço está saudável"""
+    """Verifica se o serviço está saudável - Versão corrigida"""
     for attempt in range(3):
         try:
             response = requests.get(f"http://127.0.0.1:{port}{endpoint}", timeout=2)
-            if response.status_code == 200:
+            # ✅ Qualquer status 2xx ou 3xx é considerado saudável
+            if 200 <= response.status_code < 400:
                 return True
         except:
             time.sleep(0.5)

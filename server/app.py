@@ -7,20 +7,20 @@ from flask import Flask, request, jsonify, send_from_directory, redirect
 from werkzeug.security import check_password_hash
 import jwt as pyjwt
 
-# Adiciona o diretório pai ao path para encontrar database.py
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 🔥 CORREÇÃO: Adiciona o caminho correto para importar database
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # ✅ Agora aponta para flux_on/
+sys.path.insert(0, BASE_DIR)
 
-from database import JSONDatabase
-from cors_config import configure_cors
-from config import SECURITY_CONFIG
+from core.database import JSONDatabase
+from server.cors_config import configure_cors
+from server.config import SECURITY_CONFIG
 
 # Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
-# Caminho absoluto da pasta client
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CLIENT_DIR = os.path.join(BASE_DIR, '..', 'client')
+# 🔥 CORREÇÃO: Caminho absoluto para client/static
+CLIENT_DIR = os.path.join(BASE_DIR, 'client', 'static')  # ✅ Agora correto
 
 def create_app():
     # Configura Flask
@@ -69,17 +69,17 @@ def create_app():
                 'exp': datetime.now(timezone.utc) + timedelta(hours=2)
             }, app.config['SECRET_KEY'], algorithm='HS256')
 
-            # 🔥 CORREÇÃO CRÍTICA: Redirecionar para o servidor externo
-            hub_url = f"{app.config['EXTERNAL_SERVER_URL']}/redirect-confirmation?token={token}"
+            # 🔥 REDIRECIONAMENTO CORRETO para Streamlit Cloud
+            hub_url = f"https://almafluxo-7magbvhbc7xk7zhjnlazq7.streamlit.app/?token={token}"
 
             return jsonify({
                 "success": True,
                 "data": {
                     "token": token,
-                    "hub_url": hub_url,  # URL externa
+                    "hub_url": hub_url,  # ✅ URL do Streamlit Cloud com token
                     "user": {
                         "id": user['id'],
-                        "email": user['email'],  # <-- usar 'user', não 'payload'
+                        "email": user['email'],
                         "name": user.get('name'),
                         "is_admin": user.get('is_admin', False)
                     }
@@ -89,7 +89,7 @@ def create_app():
         except Exception:
             logger.exception("Erro no login")
             return jsonify({"success": False, "error": "Erro interno no servidor"}), 500
-
+        
     @app.route('/api/validate_token', methods=['POST'])
     def validate_token():
         try:
@@ -127,7 +127,7 @@ def create_app():
         """Redireciona para o servidor externo"""
         return redirect(app.config['EXTERNAL_SERVER_URL'])
 
-    # 🔥 NOVA ROTA: Servir arquivos estáticos localmente se necessário
+    # 🔥 CORREÇÃO: Agora serve arquivos de client/static/
     @app.route('/static/<path:filename>')
     def serve_static(filename):
         return send_from_directory(CLIENT_DIR, filename)
@@ -137,8 +137,94 @@ def create_app():
     def health():
         return jsonify({"status": "ok", "service": "flask_backend"})
 
+    @app.route('/admin/server_status')
+    def admin_server_status():
+        """Retorna status do servidor para o painel admin"""
+        return jsonify({
+            "status": "online",
+            "services": {
+                "flask_api": "running",
+                "database": "connected",
+                "timestamp": datetime.now().isoformat()
+            }
+        })
+
+    # ===== ROTAS ADMINISTRATIVAS =====
+    @app.route('/admin/users', methods=['GET'])
+    def admin_get_users():
+        """Retorna todos os usuários para o painel admin"""
+        try:
+            # Verificar token admin primeiro
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return jsonify({"success": False, "error": "Token de administração requerido"}), 401
+            
+            token = auth_header.split(' ')[1]
+            
+            # Verificar se é token admin
+            if token != SECURITY_CONFIG.get('ADMIN_TOKEN'):
+                return jsonify({"success": False, "error": "Token de administração inválido"}), 403
+            
+            users = app.db.get_all_users()
+            return jsonify({"success": True, "data": {"users": users}})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route('/admin/verify_token', methods=['POST'])
+    def admin_verify_token():
+        """Verifica se um token é válido para administração"""
+        try:
+            data = request.get_json() or {}
+            token = data.get('token')
+            
+            if not token:
+                return jsonify({"success": False, "error": "Token não fornecido"}), 400
+            
+            # Verificar se é o token admin correto
+            if token == SECURITY_CONFIG.get('ADMIN_TOKEN'):
+                return jsonify({"success": True, "valid": True, "is_admin": True})
+            else:
+                return jsonify({"success": True, "valid": False, "is_admin": False})
+                
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route('/login', methods=['POST'])
+    def legacy_login():
+        """Endpoint de login legado (para compatibilidade com o painel)"""
+        return login()  # Chama a função de login existente
+
+    @app.route('/validate_token', methods=['POST'])
+    def legacy_validate_token():
+        """Endpoint de validação de token legado"""
+        return validate_token()  # Chama a função de validação existente
+        @app.route('/admin/stats')
+        def admin_get_stats():
+            """Retorna estatísticas para o painel admin"""
+            stats = app.db.get_database_status()
+            return jsonify({"success": True, "stats": stats})
+
+    # 🔥 ADICIONAR: Debug route para verificar caminhos
+    @app.route('/debug/paths')
+    def debug_paths():
+        return jsonify({
+            "base_dir": BASE_DIR,
+            "client_dir": CLIENT_DIR,
+            "client_dir_exists": os.path.exists(CLIENT_DIR),
+            "files_in_client_dir": os.listdir(CLIENT_DIR) if os.path.exists(CLIENT_DIR) else "Directory not found"
+        })
+
     return app
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)  # ⬅️ Mudar para 5000
+    
+    # 🔥 DEBUG: Verificar caminhos antes de iniciar
+    print(f"BASE_DIR: {BASE_DIR}")
+    print(f"CLIENT_DIR: {CLIENT_DIR}")
+    print(f"CLIENT_DIR existe: {os.path.exists(CLIENT_DIR)}")
+    
+    if os.path.exists(CLIENT_DIR):
+        print(f"Arquivos em CLIENT_DIR: {os.listdir(CLIENT_DIR)}")
+    
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

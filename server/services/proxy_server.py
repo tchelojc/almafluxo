@@ -6,16 +6,15 @@ Apenas para proxy reverso - sem gerenciamento de serviços
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, Response
-from flask import render_template_string
 import httpx
 import logging
 import urllib.parse
 import os
 from pathlib import Path
 
-# Adicione no início do arquivo, após os imports
-BASE_DIR = Path(__file__).parent.parent
-CLIENT_DIR = BASE_DIR / "client"
+# 🔥 CORREÇÃO: Caminho correto para client/static
+BASE_DIR = Path(__file__).parent.parent.parent
+CLIENT_DIR = BASE_DIR / "client" / "static"  # ✅ CORRIGIDO: removida a vírgula
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -29,7 +28,9 @@ app.add_middleware(
     allow_origins=[
         "https://almafluxo.uk",
         "http://localhost:5001",
-        "http://127.0.0.1:5001"
+        "http://127.0.0.1:5001",
+        "http://localhost:8501",  # ✅ Adicionar Streamlit
+        "https://*.streamlit.app"  # ✅ Adicionar Streamlit Cloud
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -40,6 +41,8 @@ SERVICE_ROUTES = {
     "api": "http://localhost:5000",
     "hub": "http://localhost:8501",
     "daytrade": "http://localhost:8502",
+    "sports": "http://localhost:8503",
+    "quantum": "http://localhost:8504",
     "_stcore": "http://localhost:8501",  # Streamlit internals
     "static": "http://localhost:8501",   # Streamlit static files
 }
@@ -80,29 +83,41 @@ async def home():
     return await serve_frontend("")
 
 @app.get("/{path:path}")
-async def serve_frontend(path: str, request: Request):  # ⬅️ ADICIONAR Request como parâmetro
+async def serve_frontend(path: str, request: Request):
     """Serve arquivos estáticos do frontend com roteamento inteligente"""
     try:
-        # ⬇️⬇️⬇️ CORREÇÃO CRÍTICA: Roteamento específico ⬇️⬇️⬇️
+        # Roteamento específico
         if path == "redirect-confirmation":
-            # Esta rota será tratada pela função redirect_confirmation
-            return await redirect_confirmation(request)  # ⬅️ Agora request está definido
+            return await redirect_confirmation(request)
         
         if path == "login" or path == "":
-            # Serve a página de login
             return await serve_index()
         
-        # Serve arquivos estáticos (CSS, JS, imagens)
+        # 🔥 CORREÇÃO: Verificar se o caminho é um arquivo estático
         file_path = CLIENT_DIR / path
+        
+        # Log para debug
+        logger.info(f"Tentando servir: {file_path}")
+        logger.info(f"Arquivo existe: {file_path.exists()}")
+        
         if file_path.exists() and file_path.is_file():
+            # Determinar content-type
+            if path.endswith(".html"):
+                media_type = "text/html"
+            elif path.endswith(".css"):
+                media_type = "text/css"
+            elif path.endswith(".js"):
+                media_type = "application/javascript"
+            elif path.endswith(".png"):
+                media_type = "image/png"
+            elif path.endswith((".jpg", ".jpeg")):
+                media_type = "image/jpeg"
+            else:
+                media_type = "text/plain"
+                
             return Response(
                 content=file_path.read_bytes(),
-                media_type="text/html" if path.endswith(".html") else 
-                          "text/css" if path.endswith(".css") else
-                          "application/javascript" if path.endswith(".js") else
-                          "image/png" if path.endswith(".png") else
-                          "image/jpeg" if path.endswith((".jpg", ".jpeg")) else
-                          "text/plain"
+                media_type=media_type
             )
         
         # Para qualquer outra rota, servir a página de login
@@ -115,12 +130,27 @@ async def serve_frontend(path: str, request: Request):  # ⬅️ ADICIONAR Reque
 async def serve_index():
     """Serve o index_external.html"""
     index_path = CLIENT_DIR / "index_external.html"
+    
     if index_path.exists():
         return Response(
             content=index_path.read_bytes(),
             media_type="text/html"
         )
-    return Response(content="<h1>Página não encontrada</h1>", media_type="text/html")
+    
+    # Fallback se o arquivo não existir
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>ALMA Fluxo - Login</title>
+    </head>
+    <body>
+        <h1>ALMA Fluxo Platform</h1>
+        <p>Sistema temporariamente indisponível</p>
+    </body>
+    </html>
+    """
+    return Response(content=html_content, media_type="text/html")
 
 @app.post("/login")
 async def login(request: Request):
@@ -130,9 +160,8 @@ async def login(request: Request):
         logger.info(f"Login attempt for email: {data.get('email')}")
         
         async with httpx.AsyncClient() as client:
-            # ⬇️⬇️⬇️ CORREÇÃO CRÍTICA: Mudar para /api/login ⬇️⬇️⬇️
             resp = await client.post(
-                "http://localhost:5000/api/login",  # ✅ CORRIGIDO
+                "http://localhost:5000/api/login",
                 json=data, 
                 timeout=10.0
             )
@@ -161,12 +190,9 @@ async def login(request: Request):
 async def health():
     return {"status": "healthy", "service": "alma_proxy"}
 
-# Adicione esta rota ao proxy_server.py
-# ⬇️ SUBSTITUA a função redirect_confirmation por esta versão correta ⬇️
-
 @app.get("/redirect-confirmation")
 async def redirect_confirmation(request: Request):
-    """Serve a página completa de redirecionamento COM DEBUG"""
+    """Serve a página completa de redirecionamento"""
     token = request.query_params.get("token")
     
     logger.info(f"Redirect confirmation request received, token: {token}")
@@ -202,29 +228,16 @@ async def redirect_confirmation(request: Request):
     # Servir o arquivo HTML completo de redirecionamento
     file_path = CLIENT_DIR / "redirect_confirmation.html"
     
-    logger.info(f"Procurando arquivo em: {file_path}")
-    logger.info(f"Arquivo existe: {file_path.exists()}")
-    
-    if not file_path.exists():
-        logger.error("Arquivo redirect_confirmation.html não encontrado")
-        # Listar arquivos no diretório para debug
+    if file_path.exists():
         try:
-            files = os.listdir(CLIENT_DIR)
-            logger.info(f"Arquivos em {CLIENT_DIR}: {files}")
+            html_content = file_path.read_text(encoding="utf-8")
+            logger.info("Arquivo HTML lido com sucesso")
+            return Response(content=html_content, media_type="text/html")
         except Exception as e:
-            logger.error(f"Erro ao listar arquivos: {e}")
-        
-        return await serve_redirect_confirmation_fallback(token)
+            logger.error(f"Erro ao ler arquivo HTML: {e}")
     
-    try:
-        # Ler o arquivo HTML
-        html_content = file_path.read_text(encoding="utf-8")
-        logger.info("Arquivo HTML lido com sucesso")
-        return Response(content=html_content, media_type="text/html")
-        
-    except Exception as e:
-        logger.error(f"Erro ao ler arquivo HTML: {e}")
-        return await serve_redirect_confirmation_fallback(token)
+    # Fallback se o arquivo não for encontrado
+    return await serve_redirect_confirmation_fallback(token)
 
 async def serve_redirect_confirmation_fallback(token: str):
     """Fallback se o arquivo HTML não for encontrado"""
@@ -246,23 +259,6 @@ async def serve_redirect_confirmation_fallback(token: str):
             <p>Por favor, aguarde enquanto redirecionamos para a plataforma.</p>
             <p>Se não for redirecionado automaticamente, <a href="http://localhost:8501?token={token}">clique aqui</a>.</p>
         </div>
-    </body>
-    </html>
-    """
-    return Response(content=html_content, media_type="text/html")
-
-async def serve_redirect_confirmation(token: str):
-    """Serve a página de confirmação de redirecionamento"""
-    # Você pode criar um template HTML ou servir um arquivo estático
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>ALMA - Conectando...</title>
-        <meta http-equiv="refresh" content="0; url=http://localhost:8501?token={token}">
-    </head>
-    <body>
-        <p>Conectando ao ALMA Hub... <a href="http://localhost:8501?token={token}">Clique aqui</a> se não for redirecionado.</p>
     </body>
     </html>
     """
