@@ -1,8 +1,165 @@
-# seletor.py (VERSÃO FINAL COM OPÇÕES DE ABERTURA)
+# seletor.py (VERSÃO FINAL - Portal de Acesso)
 import streamlit as st
-import time
+import requests
 
-# ==================== CONFIGURAÇÃO DE ESTILOS (Mantida) ====================
+# ==================== CONFIGURAÇÃO ====================
+# URL para onde o botão "ALMA" irá redirecionar
+LOGIN_URL = "https://almafluxo.uk/login"
+
+# URL da sua API para validar o token.
+# O app Streamlit precisa conseguir acessar esta URL publicamente.
+API_VALIDATION_URL = "https://almafluxo.uk/api/validate_token"
+
+# ==================== PLATAFORMAS CONFIGURADAS ====================
+PLATFORMS = {
+    "Trading Financeiro": {
+        "id": "daytrade", 
+        "icon": "📈", 
+        "color": "#4CAF50", 
+        "description": "Plataforma avançada para operações de day trade e análise de mercado.",
+        "url": "https://almafluxo.uk/daytrade"
+    },
+    "Apostas Esportivas": {
+        "id": "sports", 
+        "icon": "⚽", 
+        "color": "#2196F3", 
+        "description": "Sistema profissional para gestão de apostas e análises esportivas.",
+        "url": "https://almafluxo.uk/sports"
+    },
+    "Operações Quânticas": {
+        "id": "quantum", 
+        "icon": "🎯", 
+        "color": "#9C27B0", 
+        "description": "Ferramentas premium para operações avançadas e estratégias complexas.",
+        "url": "https://almafluxo.uk/quantum"
+    }
+}
+
+# ==================== FUNÇÕES PRINCIPAIS ====================
+
+def verify_token(token):
+    """Verifica se o token JWT é válido fazendo uma chamada à sua API Flask."""
+    if not token:
+        return False
+    try:
+        response = requests.post(API_VALIDATION_URL, json={"token": token}, timeout=7)
+        # Verifica se a resposta foi bem-sucedida e se o JSON confirma a validade
+        return response.status_code == 200 and response.json().get("data", {}).get("valid", False)
+    except requests.exceptions.RequestException:
+        # Se a API de validação estiver offline, consideramos o token inválido.
+        st.error("Não foi possível conectar ao servidor de autenticação.")
+        return False
+
+def show_login_gateway():
+    """
+    Exibe uma página de portal limpa, sem elementos do Streamlit,
+    com um único botão que redireciona para a página de login.
+    """
+    st.set_page_config(layout="centered")
+
+    # CSS para limpar a interface do Streamlit e estilizar o portal
+    st.markdown(f"""
+    <style>
+        /* Remove todos os elementos da interface do Streamlit */
+        .stApp > header, .st-emotion-cache-16txtl3, div[data-testid="stToolbar"], 
+        div[data-testid="stDecoration"], div[data-testid="stStatusWidget"] {{
+            display: none !important;
+        }}
+
+        /* Aplica a imagem de fundo em toda a tela */
+        .stApp {{
+            background: url('https://images.unsplash.com/photo-1639762681057-408e52192e55?q=80&w=2232&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover;
+        }}
+
+        /* Centraliza o conteúdo verticalmente e horizontalmente */
+        .main {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }}
+
+        /* Container central para o botão e texto */
+        .center-container {{
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }}
+
+        /* Estiliza o botão "ALMA" */
+        .alma-btn {{
+            width: 200px;
+            height: 200px;
+            background: rgba(74, 111, 165, 0.5);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-decoration: none;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.2), inset 0 0 30px rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            transition: all 0.4s ease;
+            animation: pulse 3s infinite;
+            backdrop-filter: blur(10px);
+            margin-bottom: 25px;
+        }}
+
+        .alma-btn:hover {{
+            transform: scale(1.1);
+            box-shadow: 0 0 50px rgba(255, 255, 255, 0.4), inset 0 0 40px rgba(255, 255, 255, 0.2);
+            animation-play-state: paused;
+        }}
+
+        @keyframes pulse {{
+            0% {{ box-shadow: 0 0 20px rgba(255, 255, 255, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.1); }}
+            50% {{ box-shadow: 0 0 40px rgba(255, 255, 255, 0.3), inset 0 0 30px rgba(255, 255, 255, 0.15); }}
+            100% {{ box-shadow: 0 0 20px rgba(255, 255, 255, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.1); }}
+        }}
+
+        /* Textos de suporte */
+        .support-text {{
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }}
+        .support-text .title {{ 
+            font-size: 1.2rem; 
+            margin-bottom: 5px;
+        }}
+        .support-text .subtitle {{ 
+            font-size: 0.9rem; 
+            opacity: 0.8; 
+        }}
+    </style>
+    
+    <div class="main">
+        <div class="center-container">
+            <a href="{LOGIN_URL}" target="_top" class="alma-btn">ALMA</a>
+            <div class="support-text">
+                <div class="title">Sistema ALMA</div>
+                <div class="subtitle">Clique para acessar o portal</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Impede que o restante do script Streamlit seja executado
+    st.stop()
+
+# ==================== CONFIGURAÇÃO DE ESTILOS (Mantida - para quando estiver logado) ====================
 def apply_custom_styles():
     st.markdown("""
     <style>
@@ -117,58 +274,21 @@ def apply_custom_styles():
     </style>
     """, unsafe_allow_html=True)
 
-# ==================== PLATAFORMAS CONFIGURADAS ====================
-# As URLs devem apontar para os caminhos públicos que você configurou
-PLATFORMS = {
-    "Trading Financeiro": {
-        "id": "daytrade", 
-        "icon": "📈", 
-        "color": "#4CAF50", 
-        "description": "Plataforma avançada para operações de day trade e análise de mercado.",
-        "url": "https://almafluxo.uk/daytrade" # Exemplo de URL pública
-    },
-    "Apostas Esportivas": {
-        "id": "sports", 
-        "icon": "⚽", 
-        "color": "#2196F3", 
-        "description": "Sistema profissional para gestão de apostas e análises esportivas.",
-        "url": "https://almafluxo.uk/sports" # Exemplo de URL pública
-    },
-    "Operações Quânticas": {
-        "id": "quantum", 
-        "icon": "🎯", 
-        "color": "#9C27B0", 
-        "description": "Ferramentas premium para operações avançadas e estratégias complexas.",
-        "url": "https://almafluxo.uk/quantum" # Exemplo de URL pública
-    }
-}
-
 # ==================== FUNÇÕES AUXILIARES ====================
-
 def check_service_health(port):
-    """
-    Verifica se o serviço está online.
-    NOTA: Em um ambiente como o Streamlit Cloud, não podemos verificar portas locais.
-    Esta função assume que os serviços estão online se as URLs públicas estiverem configuradas.
-    """
     return True
 
-# ✅ CORREÇÃO: Função unificada para gerar o JavaScript de redirecionamento
 def execute_redirect(url, open_in_new_tab=False):
-    """Gera e executa o código JavaScript para redirecionar o usuário."""
     if open_in_new_tab:
-        # Abre em uma NOVA ABA. Requer que o navegador permita pop-ups.
         js_code = f'window.open("{url}", "_blank");'
     else:
-        # Abre na MESMA JANELA, alterando a URL da página principal.
         js_code = f'window.top.location.href = "{url}";'
-    
-    # Executa o JavaScript usando o componente HTML do Streamlit
     st.components.v1.html(f"<script>{js_code}</script>", height=0)
 
-# ==================== APLICAÇÃO PRINCIPAL ====================
-
-def main():
+def show_platforms_hub():
+    """
+    Mostra o hub com a seleção de plataformas para usuários autenticados.
+    """
     st.set_page_config(
         page_title="🚀 ALMA EM FLUXO", 
         page_icon="🚀", 
@@ -180,23 +300,21 @@ def main():
     st.markdown("<div class='alma-header'><h1>🌊 ALMA EM FLUXO</h1></div>", unsafe_allow_html=True)
     st.markdown("<div class='alma-subtitle'>O Fluxo Natural da Alma Rumo ao Equilíbrio</div>", unsafe_allow_html=True)
     
-    # ✅ NOVO: Opção para o usuário escolher como abrir as plataformas
+    # ✅ Opção de abertura
     st.markdown("---")
     c1, c2 = st.columns([3,2])
     with c1:
-        st.write("") # Espaçador
+        st.write("")
     with c2:
         open_option = st.radio(
             "Modo de abertura:",
             ("Na mesma janela", "Em uma nova aba"),
-            index=0, # Padrão é "Na mesma janela"
+            index=0,
             horizontal=True,
         )
     
-    # Converte a opção em um booleano para a função
     open_in_new_tab = (open_option == "Em uma nova aba")
 
-    # Adiciona um aviso se o usuário escolher abrir em nova aba
     if open_in_new_tab:
         st.info("ℹ️ Abertura em nova aba pode exigir que você habilite pop-ups para este site no seu navegador.")
         
@@ -205,7 +323,7 @@ def main():
     
     for i, (name, data) in enumerate(PLATFORMS.items()):
         with cols[i]:
-            is_online = check_service_health(data.get("port")) # .get é mais seguro
+            is_online = check_service_health(data.get("port"))
             status_text = "🟢 ONLINE" if is_online else "🔴 OFFLINE"
             status_class = "status-online" if is_online else "status-offline"
             
@@ -218,11 +336,8 @@ def main():
             """, unsafe_allow_html=True)
             
             if st.button(f"🚀 Acessar {name}", key=data["id"], use_container_width=True, disabled=not is_online):
-                # ✅ CHAMADA DA NOVA FUNÇÃO DE REDIRECIONAMENTO
                 execute_redirect(data["url"], open_in_new_tab=open_in_new_tab)
-                
                 st.success(f"✅ Redirecionando para {name}...")
-                time.sleep(1) # Apenas para o usuário ver a mensagem
     
     # 📝 FOOTER
     st.markdown("""
@@ -231,6 +346,21 @@ def main():
         <p><strong>Conceito:</strong> O fluxo constante da alma em busca da Liberdade Consciente</p>
     </div>
     """, unsafe_allow_html=True)
+
+# ==================== LÓGICA PRINCIPAL ====================
+def main():
+    """
+    Ponto de entrada do aplicativo.
+    Verifica o token; se for válido, mostra o hub, senão, mostra o portal de login.
+    """
+    token = st.query_params.get("token")
+
+    if verify_token(token):
+        # Se o token na URL for válido, mostra o hub de plataformas.
+        show_platforms_hub()
+    else:
+        # Se não houver token ou ele for inválido, mostra o portal de acesso.
+        show_login_gateway()
 
 if __name__ == "__main__":
     main()
