@@ -213,6 +213,35 @@ def create_app():
             "client_dir_exists": os.path.exists(CLIENT_DIR),
             "files_in_client_dir": os.listdir(CLIENT_DIR) if os.path.exists(CLIENT_DIR) else "Directory not found"
         })
+        
+    @app.route('/daytrade')
+    def day_trade_platform():
+        """Redireciona para a plataforma de Day Trade"""
+        # Verificar autenticação primeiro
+        token = request.args.get('token')
+        if not token or not validate_token(token):
+            return redirect('/login')
+        
+        # Redirecionar para o arquivo main.py do day_trade
+        return redirect('http://localhost:8502/')
+
+    @app.route('/sports')  
+    def sports_platform():
+        """Redireciona para a plataforma de Apostas Esportivas"""
+        token = request.args.get('token')
+        if not token or not validate_token(token):
+            return redirect('/login')
+        
+        return redirect('http://localhost:8503/')
+
+    @app.route('/quantum')
+    def quantum_platform():
+        """Redireciona para a plataforma de Operações Quânticas"""
+        token = request.args.get('token')
+        if not token or not validate_token(token):
+            return redirect('/login')
+        
+        return redirect('http://localhost:8504/')
 
     return app
 
