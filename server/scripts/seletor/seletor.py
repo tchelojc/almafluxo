@@ -1,8 +1,8 @@
-# seletor.py (VERSÃO COM IDENTIDADE VISUAL APRIMORADA)
+# seletor.py (VERSÃO FINAL COM OPÇÕES DE ABERTURA)
 import streamlit as st
 import time
 
-# ==================== CONFIGURAÇÃO DE ESTILOS ====================
+# ==================== CONFIGURAÇÃO DE ESTILOS (Mantida) ====================
 def apply_custom_styles():
     st.markdown("""
     <style>
@@ -118,48 +118,55 @@ def apply_custom_styles():
     """, unsafe_allow_html=True)
 
 # ==================== PLATAFORMAS CONFIGURADAS ====================
+# As URLs devem apontar para os caminhos públicos que você configurou
 PLATFORMS = {
     "Trading Financeiro": {
         "id": "daytrade", 
-        "port": 8502, 
         "icon": "📈", 
         "color": "#4CAF50", 
-        "description": "Plataforma avançada para operações de day trade e análise de mercado",
-        "url": "https://almafluxo.uk/daytrade"
+        "description": "Plataforma avançada para operações de day trade e análise de mercado.",
+        "url": "https://almafluxo.uk/daytrade" # Exemplo de URL pública
     },
     "Apostas Esportivas": {
         "id": "sports", 
-        "port": 8503, 
         "icon": "⚽", 
         "color": "#2196F3", 
-        "description": "Sistema profissional para gestão de apostas e análises esportivas",
-        "url": "https://almafluxo.uk/sports"
+        "description": "Sistema profissional para gestão de apostas e análises esportivas.",
+        "url": "https://almafluxo.uk/sports" # Exemplo de URL pública
     },
     "Operações Quânticas": {
         "id": "quantum", 
-        "port": 8504, 
         "icon": "🎯", 
         "color": "#9C27B0", 
-        "description": "Ferramentas premium para operações avançadas e estratégias complexas",
-        "url": "https://almafluxo.uk/quantum"
+        "description": "Ferramentas premium para operações avançadas e estratégias complexas.",
+        "url": "https://almafluxo.uk/quantum" # Exemplo de URL pública
     }
 }
 
-def check_service_health(port):
-    """Verifica se o serviço está online - Versão para Streamlit Cloud"""
-    try:
-        return True
-    except:
-        return False
+# ==================== FUNÇÕES AUXILIARES ====================
 
-def open_in_new_tab(url):
-    """JavaScript para abrir URL em nova aba"""
-    js_code = f"""
-    <script>
-        window.open('{url}', '_blank');
-    </script>
+def check_service_health(port):
     """
-    return js_code
+    Verifica se o serviço está online.
+    NOTA: Em um ambiente como o Streamlit Cloud, não podemos verificar portas locais.
+    Esta função assume que os serviços estão online se as URLs públicas estiverem configuradas.
+    """
+    return True
+
+# ✅ CORREÇÃO: Função unificada para gerar o JavaScript de redirecionamento
+def execute_redirect(url, open_in_new_tab=False):
+    """Gera e executa o código JavaScript para redirecionar o usuário."""
+    if open_in_new_tab:
+        # Abre em uma NOVA ABA. Requer que o navegador permita pop-ups.
+        js_code = f'window.open("{url}", "_blank");'
+    else:
+        # Abre na MESMA JANELA, alterando a URL da página principal.
+        js_code = f'window.top.location.href = "{url}";'
+    
+    # Executa o JavaScript usando o componente HTML do Streamlit
+    st.components.v1.html(f"<script>{js_code}</script>", height=0)
+
+# ==================== APLICAÇÃO PRINCIPAL ====================
 
 def main():
     st.set_page_config(
@@ -171,24 +178,34 @@ def main():
     
     # 👑 HEADER - ALMA EM FLUXO
     st.markdown("<div class='alma-header'><h1>🌊 ALMA EM FLUXO</h1></div>", unsafe_allow_html=True)
-    st.markdown("<div class='alma-subtitle'>O Fluxo Natural da Alma Rumo ao Equlíbrio</div>", unsafe_allow_html=True)
+    st.markdown("<div class='alma-subtitle'>O Fluxo Natural da Alma Rumo ao Equilíbrio</div>", unsafe_allow_html=True)
     
-    # 📊 STATUS INFO
-    st.markdown("""
-    <div class='info-box'>
-        <strong>💡 Como Funciona:</strong><br>
-        • Clique em qualquer plataforma para abrir em nova aba<br>
-        • Todas as plataformas são acessadas através do domínio <strong>almafluxo.uk</strong><br>
-        • Conecte-se ao fluxo natural da evolução tecnológica
-    </div>
-    """, unsafe_allow_html=True)
+    # ✅ NOVO: Opção para o usuário escolher como abrir as plataformas
+    st.markdown("---")
+    c1, c2 = st.columns([3,2])
+    with c1:
+        st.write("") # Espaçador
+    with c2:
+        open_option = st.radio(
+            "Modo de abertura:",
+            ("Na mesma janela", "Em uma nova aba"),
+            index=0, # Padrão é "Na mesma janela"
+            horizontal=True,
+        )
     
+    # Converte a opção em um booleano para a função
+    open_in_new_tab = (open_option == "Em uma nova aba")
+
+    # Adiciona um aviso se o usuário escolher abrir em nova aba
+    if open_in_new_tab:
+        st.info("ℹ️ Abertura em nova aba pode exigir que você habilite pop-ups para este site no seu navegador.")
+        
     # 🎯 PLATAFORMAS
     cols = st.columns(len(PLATFORMS))
     
     for i, (name, data) in enumerate(PLATFORMS.items()):
         with cols[i]:
-            is_online = check_service_health(data["port"])
+            is_online = check_service_health(data.get("port")) # .get é mais seguro
             status_text = "🟢 ONLINE" if is_online else "🔴 OFFLINE"
             status_class = "status-online" if is_online else "status-offline"
             
@@ -200,17 +217,17 @@ def main():
             </div>
             """, unsafe_allow_html=True)
             
-            if st.button(f"🚀 Acessar {name}", key=data["id"], use_container_width=True):
-                js_code = open_in_new_tab(data["url"])
-                st.components.v1.html(js_code, height=0)
-                st.success(f"✅ {name} aberto em nova aba!")
-                time.sleep(1)
+            if st.button(f"🚀 Acessar {name}", key=data["id"], use_container_width=True, disabled=not is_online):
+                # ✅ CHAMADA DA NOVA FUNÇÃO DE REDIRECIONAMENTO
+                execute_redirect(data["url"], open_in_new_tab=open_in_new_tab)
+                
+                st.success(f"✅ Redirecionando para {name}...")
+                time.sleep(1) # Apenas para o usuário ver a mensagem
     
     # 📝 FOOTER
     st.markdown("""
     <div class='footer'>
         <h4>🌐 ALMA EM FLUXO - Sistema Integrado</h4>
-        <p><strong>Portal:</strong> Streamlit Cloud | <strong>Backend:</strong> AlmaFluxo UK</p>
         <p><strong>Conceito:</strong> O fluxo constante da alma em busca da Liberdade Consciente</p>
     </div>
     """, unsafe_allow_html=True)
