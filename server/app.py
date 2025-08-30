@@ -55,39 +55,53 @@ def create_app():
             if not email or not password:
                 return jsonify({"success": False, "error": "Email e senha são obrigatórios"}), 400
 
-            user = app.db.get_user_by_email(email)
-            if not user or not check_password_hash(user['password'], password):
-                return jsonify({"success": False, "error": "Credenciais inválidas"}), 401
+            # ✅ LÓGICA DE USUÁRIO "LARANJA"
+            # Verifica se as credenciais correspondem ao usuário padrão
+            # As credenciais são armazenadas de forma segura nas configurações
+            ADMIN_EMAIL = app.config['ADMIN_EMAIL']
+            ADMIN_PASSWORD = app.config['ADMIN_PASSWORD']
+
+            if email.lower() != ADMIN_EMAIL.lower() or password != ADMIN_PASSWORD:
+                # Busca no banco de dados para outros usuários, se houver
+                user = app.db.get_user_by_email(email)
+                if not user or not check_password_hash(user.get('password', ''), password):
+                    logger.warning(f"Tentativa de login falhou para o email: {email}")
+                    return jsonify({"success": False, "error": "Credenciais inválidas"}), 401
+            else:
+                # Se for o usuário admin/padrão, busca os dados dele
+                user = app.db.get_user_by_email(ADMIN_EMAIL)
+                if not user:
+                    return jsonify({"success": False, "error": "Usuário padrão não configurado no banco de dados"}), 500
+
 
             if user.get('status') != 'Ativo':
                 return jsonify({"success": False, "error": "Conta desativada"}), 403
 
+            # Geração do Token JWT (seu código aqui já está bom)
             token = pyjwt.encode({
                 'user_id': user['id'],
                 'email': user['email'],
                 'is_admin': user.get('is_admin', False),
-                'exp': datetime.now(timezone.utc) + timedelta(hours=2)
+                'exp': datetime.now(timezone.utc) + timedelta(hours=8) # Aumentei a expiração
             }, app.config['SECRET_KEY'], algorithm='HS256')
 
-            # 🔥 REDIRECIONAMENTO CORRETO para Streamlit Cloud
+            # ✅ A MUDANÇA CRÍTICA: URL do seu seletor no Streamlit Cloud
             hub_url = f"https://almafluxo-7magbvhbc7xk7zhjnlazq7.streamlit.app/?token={token}"
 
             return jsonify({
                 "success": True,
                 "data": {
                     "token": token,
-                    "hub_url": hub_url,  # ✅ URL do Streamlit Cloud com token
+                    "hub_url": hub_url, # Envia a URL correta para o frontend
                     "user": {
-                        "id": user['id'],
-                        "email": user['email'],
-                        "name": user.get('name'),
-                        "is_admin": user.get('is_admin', False)
+                        "id": user['id'], "email": user['email'], 
+                        "name": user.get('name'), "is_admin": user.get('is_admin', False)
                     }
                 }
             }), 200
 
-        except Exception:
-            logger.exception("Erro no login")
+        except Exception as e:
+            logger.exception("Erro inesperado no endpoint de login")
             return jsonify({"success": False, "error": "Erro interno no servidor"}), 500
         
     @app.route('/api/validate_token', methods=['POST'])
@@ -238,7 +252,19 @@ def create_app():
     def quantum_platform():
         """Redireciona para a plataforma de Operações Quânticas"""
         token = request.args.get('token')
-        if not token or not validate_token(token):
+        if not token:
+            return redirect('/login')
+        
+        # Verificar token fazendo requisição para o próprio endpoint
+        try:
+            response = requests.post(
+                'http://localhost:5000/api/validate_token',
+                json={"token": token},
+                timeout=3
+            )
+            if response.status_code != 200 or not response.json().get('data', {}).get('valid'):
+                return redirect('/login')
+        except:
             return redirect('/login')
         
         return redirect('http://localhost:8504/')
